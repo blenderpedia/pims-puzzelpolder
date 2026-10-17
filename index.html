@@ -10,7 +10,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Grandstander:wght@600;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Fira+Sans+Extra+Condensed:wght@700&family=Grandstander:wght@600;800;900&display=swap">
 <style>
 :root{
   /* Layout: full-bleed 3D tabletop with a floating HUD, docked on a Delft-blue control deck */
@@ -72,7 +72,13 @@ svg{display:block}
   background-size:38px 38px;box-shadow:0 -8px 24px rgba(19,35,94,.28);padding-block:12px 10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .deck-in{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
 #clue{display:flex;align-items:center;gap:11px;background:var(--paper);border-radius:18px;padding:7px 8px 7px 7px;box-shadow:inset 0 -4px 0 var(--paper-2)}
-#cluePic{width:60px;height:60px;flex:0 0 60px;border-radius:13px;background:var(--paper-2)}
+#picBtn{position:relative;width:60px;height:60px;flex:0 0 60px;padding:0;border:0;border-radius:13px;background:var(--paper-2);display:block}
+#picBtn.hidden{background:var(--deck);box-shadow:inset 0 -4px 0 var(--deck-deep)}
+#picBtn.hidden:active{transform:translateY(2px)}
+#picBtn:disabled{cursor:default}
+#cluePic{width:60px;height:60px;display:block;border-radius:13px}
+.pictag{position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);white-space:nowrap;background:var(--kaas);color:var(--ink);font:900 11px/1 var(--f-display);padding:3px 6px;border-radius:99px;box-shadow:0 2px 0 var(--kaas-deep)}
+.pictag.none{background:#E3E7F3;color:#8A93B3;box-shadow:none}
 .clue-txt{flex:1;min-width:0}
 #clueHint{margin:0;font:700 17px/1.25 var(--f-read);color:var(--ink);text-wrap:balance}
 .clue-meta{margin:4px 0 0;display:flex;gap:6px;align-items:center;font:800 12px/1 var(--f-display);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.07em}
@@ -92,8 +98,9 @@ svg{display:block}
 .key svg{width:24px;height:24px}
 .key.wide{max-width:66px;flex:1.5 1 0;background:#C9D6FF}
 .key.down,.key:active{transform:translateY(3px);box-shadow:0 1px 0 var(--deck-deep)}
-#keys.bank .key{flex:0 0 auto;width:54px;height:54px;max-width:none;border-radius:15px;font-size:27px;background:var(--kc,#fff);box-shadow:0 5px 0 var(--deck-deep)}
-#keys.bank .key.del{background:#C9D6FF;width:66px}
+#keys.bank{gap:7px 6px;max-width:400px;margin:0 auto}
+#keys.bank .key{flex:0 0 auto;width:46px;height:50px;max-width:none;border-radius:13px;font-size:24px;background:var(--kc,#fff);box-shadow:0 5px 0 var(--deck-deep)}
+#keys.bank .key.del{background:#C9D6FF;width:58px}
 #keys.bank .key.down,#keys.bank .key:active{transform:translateY(4px);box-shadow:0 1px 0 var(--deck-deep)}
 
 .deck-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
@@ -227,7 +234,7 @@ svg{display:block}
 <body>
 <div id="app">
   <main id="stage">
-    <canvas id="c" aria-label="Puzzelbord met plaatjes en letters"></canvas>
+    <canvas id="c" aria-label="Puzzelbord met aanwijzingen en letters"></canvas>
     <div id="hud">
       <div class="lvl chip" aria-label="Jouw level">
         <span class="lvl-num" id="lvlNum">1</span>
@@ -245,8 +252,8 @@ svg{display:block}
   <section id="deck" aria-label="Bediening">
     <div class="deck-in">
       <div id="clue">
-        <canvas id="cluePic" width="120" height="120" aria-hidden="true"></canvas>
-        <div class="clue-txt"><p id="clueHint" aria-live="polite">Tik op een plaatje op het bord.</p><p class="clue-meta" id="clueMeta"></p></div>
+        <button id="picBtn" aria-label="Laat het plaatje zien, kost 1 tip"><canvas id="cluePic" width="120" height="120" aria-hidden="true"></canvas><span class="pictag" id="picTag">1 tip</span></button>
+        <div class="clue-txt"><p id="clueHint" aria-live="polite">Tik op een vakje met een aanwijzing.</p><p class="clue-meta" id="clueMeta"></p></div>
         <button class="rbtn" id="btnSpeak" aria-label="Lees de aanwijzing voor"></button>
         <button class="rbtn tip" id="btnTip" aria-label="Tip: laat een letter zien"><span id="tipIco"></span><span class="badge" id="tipNum">3</span></button>
       </div>
@@ -310,366 +317,367 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random
 let reduceMotion=false; try{reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
 
 /* ================= WORDS ================= */
-const WORDS_RAW=`KAT|🐱|Dit dier zegt miauw.
-KOE|🐄|Dit dier geeft melk en zegt boe.
-VIS|🐟|Hij zwemt in het water.
-UIL|🦉|Deze vogel is 's nachts wakker.
-AAP|🐒|Hij klimt in bomen en eet bananen.
-VOS|🦊|Een slim dier met een rode staart.
-KIP|🐔|Zij legt eieren.
-RAT|🐀|Lijkt op een muis, maar is groter.
-MUG|🦟|Een klein beestje dat prikt.
-ZON|☀️|Hij schijnt overdag en is heel warm.
-ZEE|🌊|Heel veel zout water.
-BAL|⚽|Daar kun je tegen schoppen.
-BED|🛏️|Hier slaap je in.
-BAD|🛁|Daar was je je in.
-SOK|🧦|Die draag je aan je voet, in je schoen.
-JAS|🧥|Die trek je aan als het koud is.
-PET|🧢|Een hoedje met een klep.
-BUS|🚌|Een grote auto voor heel veel mensen.
-OOG|👁️|Daarmee kijk je.
-OOR|👂|Daarmee hoor je.
-PAN|🍳|Daarin bak je een eitje.
-TAS|👜|Daar stop je je spullen in.
-PEN|🖊️|Daarmee schrijf je.
-BEL|🔔|Die maakt geluid: tring tring!
-ARM|💪|Daar zit je hand aan vast.
-HOND|🐶|Dit dier blaft: woef!
-MUIS|🐭|Een klein dier dat van kaas houdt.
-BEER|🐻|Een groot dier dat van honing houdt.
-EEND|🦆|Deze vogel zegt kwak.
-HAAN|🐓|Hij roept in de ochtend: kukeleku!
-GEIT|🐐|Een boerderijdier met een sikje.
-HERT|🦌|Een bosdier met een groot gewei.
-EGEL|🦔|Een klein dier vol stekels.
-SLAK|🐌|Hij draagt zijn huisje op zijn rug.
-MIER|🐜|Een heel klein beestje dat heel sterk is.
-SPIN|🕷️|Dit beestje maakt een web.
-KRAB|🦀|Hij loopt zijwaarts over het strand.
-HAAI|🦈|Een grote vis met scherpe tanden.
-DUIF|🕊️|Een vogel die je veel in de stad ziet.
-BOOM|🌳|Hij is groot en groen en heeft takken.
-TULP|🌷|Een bekende bloem uit Nederland.
-ROOS|🌹|Een rode bloem met doornen.
-BLAD|🍃|Groen en het zit aan een boom.
-HUIS|🏠|Hier woon je.
-AUTO|🚗|Die rijdt op vier wielen.
-BOOT|⛵|Die vaart op het water.
-TAXI|🚕|Een auto die jou ergens heen brengt.
-KAAS|🧀|Geel en lekker. Nederland is er beroemd om.
-MELK|🥛|Wit drinken van de koe.
-PEER|🍐|Groen fruit dat een beetje op een appel lijkt.
-SOEP|🍲|Warm eten dat je met een lepel eet.
-BOEK|📖|Hierin staan verhalen.
-MAAN|🌙|Die zie je 's nachts aan de lucht.
-STER|⭐|Die twinkelt 's nachts aan de hemel.
-WOLK|☁️|Wit en zacht, hoog in de lucht.
-VUUR|🔥|Heet en oranje. Niet aankomen!
-HAND|✋|Daar zitten vijf vingers aan.
-VOET|🦶|Daar sta je op.
-NEUS|👃|Daarmee ruik je.
-MOND|👄|Daarmee eet en praat je.
-TAND|🦷|Die poets je elke dag.
-HART|❤️|Het klopt in je borst.
-LAMP|💡|Die geeft licht.
-DEUR|🚪|Die gaat open en dicht.
-KLOK|🕐|Die vertelt hoe laat het is.
-HOED|🎩|Die zet je op je hoofd.
-VLAG|🚩|Die wappert aan een paal.
-TENT|⛺|Daarin slaap je op de camping.
-VORK|🍴|Daarmee prik je in je eten.
-BORD|🍽️|Daar ligt je eten op.
-ZEEP|🧼|Daarmee was je je handen.
-BRIL|👓|Die zet je op om beter te zien.
-RING|💍|Die draag je om je vinger.
-DOOS|📦|Daar kun je dingen in bewaren.
-TROM|🥁|Daar sla je op: boem boem!
-DUIM|👍|Die steek je op als iets goed is.
-BEEN|🦵|Daar loop je op.
-PAARD|🐴|Daar kun je op rijden.
-SLANG|🐍|Een lang dier zonder pootjes.
-LEEUW|🦁|De koning van de dieren.
-ZEBRA|🦓|Een paard met zwarte en witte strepen.
-GIRAF|🦒|Een dier met een heel lange nek.
-ZWAAN|🦢|Een witte vogel met een lange nek.
-BLOEM|🌼|Die groeit in de tuin en ruikt lekker.
-APPEL|🍎|Rood of groen fruit.
-DRUIF|🍇|Klein rond fruit dat aan een tros groeit.
-BROOD|🍞|Daar smeer je boter op.
-FRIET|🍟|Patat! Lekker met mayonaise.
-SNOEP|🍬|Zoet en lekker, maar niet te veel!
-WAFEL|🧇|Lekkers met vakjes. Ken je de stroop...?
-DONUT|🍩|Rond en zoet, met een gat in het midden.
-PIZZA|🍕|Rond, met tomaat en kaas, uit de oven.
-TAART|🎂|Die eet je op je verjaardag.
-TREIN|🚂|Die rijdt over het spoor.
-FIETS|🚲|Daar rijd je op, met twee wielen.
-SCHIP|🚢|Een hele grote boot.
-RAKET|🚀|Daarmee vlieg je naar de ruimte.
-ROBOT|🤖|Een machine die kan lopen en piepen.
-DRAAK|🐉|Een sprookjesmonster dat vuur spuwt.
-KROON|👑|Die draagt een koning op zijn hoofd.
-SPOOK|👻|Het roept: boe! Een beetje eng...
-PIANO|🎹|Muziek maken met zwarte en witte toetsen.
-KAARS|🕯️|Die brandt met een klein vlammetje.
-HAMER|🔨|Daarmee sla je een spijker in de muur.
-BEKER|🏆|Die win je bij een wedstrijd.
-KAART|🗺️|Daarop zie je waar je bent.
-REGEN|🌧️|Water dat uit de wolken valt.
-FEEST|🎉|Dat vier je op je verjaardag.
-MOLEN|#molen|Die draait in de wind. Heel Nederlands!
-KLOMP|#klomp|Een houten schoen uit Nederland.
-SJAAL|🧣|Die draag je om je nek als het koud is.
-PINDA|🥜|Een nootje. Lekker als ...kaas op brood.
-VARKEN|🐷|Een roze dier dat knort.
-SCHAAP|🐑|Een wollig dier dat bèè zegt.
-KIKKER|🐸|Een groen dier dat kwaakt en springt.
-KAMEEL|🐫|Dit dier heeft bulten op zijn rug.
-WALVIS|🐋|Het grootste dier van de zee.
-BANAAN|🍌|Geel en krom fruit.
-WORTEL|🥕|Een oranje groente. Konijnen smullen ervan.
-TOMAAT|🍅|Rood en rond. Je eet hem in de salade.
-KOEKJE|🍪|Lekker bij de thee.
-STRAND|🏖️|Daar speel je in het zand bij de zee.
-SCHAAR|✂️|Daarmee knip je papier.
-BALLON|🎈|Die blaas je op voor een feestje.
-GITAAR|🎸|Een instrument met snaren.
-PIRAAT|🏴‍☠️|Hij vaart op zee en zoekt een schat.
-SCHOEN|👟|Die trek je aan je voet.
-SNEEUW|❄️|Wit en koud, het valt in de winter uit de lucht.
-MUZIEK|🎵|Daar kun je naar luisteren en op dansen.
-OLIFANT|🐘|Een groot grijs dier met een slurf.
-VLINDER|🦋|Een beestje met mooie gekleurde vleugels.
-CITROEN|🍋|Geel en heel zuur.
-AARDBEI|🍓|Een rood vruchtje met kleine pitjes.
-KASTEEL|🏰|Daar woont een koning of prinses.
-SLEUTEL|🔑|Daarmee doe je de deur op slot.
-POTLOOD|✏️|Daarmee teken je.
-HAMSTER|🐹|Klein knaagdier dat eten in zijn wangen bewaart.
-PAPEGAAI|🦜|Kleurige vogel die woorden kan nazeggen.
-FLAMINGO|🦩|Roze vogel die op één poot staat.
-PINGUIN|🐧|Zwart-witte vogel die niet kan vliegen, maar wel zwemmen.
-OCTOPUS|🐙|Zeedier met acht armen.
-INKTVIS|🦑|Zeedier dat een zwarte wolk spuit als het schrikt.
-GARNAAL|🦐|Klein roze zeediertje, lekker op brood.
-SCHELP|🐚|Die vind je op het strand. Hou hem bij je oor en hoor de zee.
-KREKEL|🦗|Insect dat 's avonds in het gras tsjirpt.
-WOLF|🐺|Wild dier dat naar de maan huilt.
-PANDA|🐼|Zwart-witte beer die bamboe eet.
-KOALA|🐨|Grijs dier uit Australië dat in bomen slaapt.
-GORILLA|🦍|De grootste aap. Hij slaat op zijn borst.
-LUIAARD|🦥|Het traagste dier. Hij hangt de hele dag in een boom.
-BEVER|🦫|Hij knaagt bomen om en bouwt een dam.
-KALKOEN|🦃|Grote vogel die 'gobbel gobbel' zegt.
-ADELAAR|🦅|Grote roofvogel met heel scherpe ogen.
-EENHOORN|🦄|Paard uit sprookjes met een hoorn op zijn hoofd.
-VLIEG|🪰|Insect dat zoemt en op je eten gaat zitten.
-WORM|🪱|Lang beestje dat door de aarde kruipt.
-KUIKEN|🐣|Baby van een kip, net uit het ei.
-LAMA|🦙|Wollig dier uit Zuid-Amerika dat kan spugen.
-PAUW|🦚|Vogel met een prachtige staart vol kleuren.
-KREEFT|🦞|Rood zeedier met twee grote scharen.
-HAAS|🐇|Lijkt op een konijn, maar heeft langere oren en poten.
-MUS|🐦|Klein bruin vogeltje dat 'tjilp' zegt.
-DINO|🦕|Reuzendier van heel, heel lang geleden.
-RUPS|🐛|Kruipt over blaadjes en wordt later een vlinder.
-ZEEHOND|🦭|Grijs dier dat op de zandbanken van de Waddenzee ligt.
-NEUSHOORN|🦏|Groot grijs dier uit Afrika met een punt op zijn snuit.
-KANGOEROE|🦘|Springt rond in Australië, met een buidel voor zijn baby.
-SCHILDPAD|🐢|Traag dier met een harde schaal op zijn rug.
-VLEERMUIS|🦇|Hangt ondersteboven en vliegt 's nachts.
-EEKHOORN|🐿️|Rood diertje met een pluimstaart dat nootjes verstopt.
-LUIPAARD|🐆|Snelle grote kat met vlekken.
-KROKODIL|🐊|Groen dier in de rivier met een grote bek vol tanden.
-HAGEDIS|🦎|Klein reptiel dat zijn staart kan laten vallen.
-KERS|🍒|Rood vruchtje met een steeltje en een pit.
-PERZIK|🍑|Zoet fruit met een zachte, harige schil.
-MANGO|🥭|Zoet oranje fruit uit warme landen.
-ANANAS|🍍|Geel fruit met een kroon van stekelige blaadjes.
-MELOEN|🍉|Groot fruit, rood van binnen met zwarte pitjes.
-KIWI|🥝|Bruin en harig fruit, groen van binnen.
-KOKOSNOOT|🥥|Harde harige bal met wit vruchtvlees. Groeit aan een palm.
-AVOCADO|🥑|Groene vrucht, die maak je fijn voor guacamole.
-MAIS|🌽|Gele korrels aan een kolf. Popcorn wordt ervan gemaakt.
-PAPRIKA|🫑|Knapperige groente in rood, geel of groen.
-KOMKOMMER|🥒|Lange groene groente, lekker in de salade.
-AARDAPPEL|🥔|Daar maak je patat en puree van.
-KNOFLOOK|🧄|Wit bolletje dat sterk ruikt. Handig tegen vampiers!
-BROCCOLI|🥦|Groene groente die op een klein boompje lijkt.
-BOTER|🧈|Die smeer je op je brood, onder de hagelslag.
-HONING|🍯|Zoet en goudgeel, gemaakt door bijen.
-PANNEKOEK|🥞|Plat en rond, lekker met stroop.
-CHOCOLA|🍫|Bruin en zoet, smelt in de zon.
-LOLLY|🍭|Snoepje op een stokje.
-POPCORN|🍿|Dat eet je in de bioscoop.
-HOTDOG|🌭|Broodje met een worstje erin.
-SALADE|🥗|Koude schaal met sla en groenten.
-SPAGHETTI|🍝|Lange slierten pasta met tomatensaus.
-SUSHI|🍣|Rijst met vis, uit Japan.
-TACO|🌮|Gevouwen Mexicaans broodje met vulling.
-BURGER|🍔|Broodje met een rond plak vlees ertussen.
-KOFFIE|☕|Warme bruine drank die grote mensen drinken.
-THEE|🍵|Warm drinken met een zakje erin.
-SAP|🧃|Drinken van fruit, vaak uit een pakje.
-WATER|💧|Dat drink je als je dorst hebt, uit de kraan.
-ZOUT|🧂|Wit en hartig. Dat strooi je over je patat.
-TRACTOR|🚜|Grote machine waarmee de boer over het land rijdt.
-VLIEGTUIG|✈️|Daarmee ga je door de lucht op vakantie.
-METRO|🚇|Trein die onder de grond rijdt.
-TRAM|🚊|Rijdt door de stad over rails in de straat.
-STEP|🛴|Eén voet erop en met de andere duwen.
-AMBULANCE|🚑|Auto met zwaailicht die zieke mensen snel helpt.
-POLITIE|🚓|Agenten die op straat helpen en boeven vangen.
-BRANDWEER|🚒|Zij komen met een rode wagen als er vuur is.
-MOTOR|🏍️|Snel voertuig met twee wielen dat veel herrie maakt.
-KANO|🛶|Smal bootje waarmee je peddelt.
-ANKER|⚓|Zwaar ijzer dat een schip op zijn plek houdt.
-UFO|🛸|Vliegende schotel van wezens uit de ruimte.
-TRUCK|🚚|Grote vrachtauto die spullen vervoert.
-STOPLICHT|🚦|Rood, oranje, groen: mag je al oversteken?
-STOEL|🪑|Daar zit je op aan tafel.
-BANK|🛋️|Daar zit je lekker op in de woonkamer.
-RAAM|🪟|Daar kijk je door naar buiten.
-SPIEGEL|🪞|Daarin zie je jezelf.
-BEZEM|🧹|Daarmee veeg je de vloer.
-EMMER|🪣|Daarmee draag je water.
-TELEFOON|📱|Daarmee bel je oma.
-COMPUTER|💻|Daarop kun je typen en spelletjes spelen.
-TELEVISIE|📺|Scherm waarop je tekenfilms kijkt.
-RADIO|📻|Kastje waaruit muziek en nieuws komt.
-CAMERA|📷|Daarmee maak je foto's.
-MAGNEET|🧲|Trekt ijzeren dingen naar zich toe.
-LADDER|🪜|Daarmee klim je naar boven.
-ZAAG|🪚|Gereedschap met scherpe tanden voor hout.
-PARAPLU|☂️|Die houd je boven je hoofd als het regent.
-KOFFER|🧳|Daar pak je je kleren in voor de vakantie.
-RUGZAK|🎒|Tas die je op je rug naar school draagt.
-ENVELOP|✉️|Daar stop je een brief in.
-ZAKLAMP|🔦|Licht in je hand voor in het donker.
-WEKKER|⏰|Die maakt je 's ochtends wakker.
-KALENDER|📅|Daarop staan alle dagen van het jaar.
-PUZZEL|🧩|Stukjes die precies in elkaar passen.
-KNUFFEL|🧸|Zacht speelgoeddier om mee te slapen.
-VLIEGER|🪁|Die laat je wapperen in de wind aan een touw.
-JOJO|🪀|Speelgoed aan een touwtje dat op en neer rolt.
-VERF|🎨|Daarmee schilder je een tekening.
-LINIAAL|📏|Daarmee trek je een rechte streep.
-SCHOOL|🏫|Daar leer je lezen en rekenen.
-FABRIEK|🏭|Gebouw waar spullen worden gemaakt.
-KERK|⛪|Gebouw met een hoge toren en klokken.
-TOREN|🗼|Heel hoog gebouw, zoals die in Parijs.
-BRUG|🌉|Daarmee ga je over het water.
-FONTEIN|⛲|Daar spuit water omhoog in het park.
-STADION|🏟️|Groot gebouw waar voetbalwedstrijden zijn.
-WINKEL|🏪|Daar doe je boodschappen.
-KERMIS|🎡|Feest met een reuzenrad en botsauto's.
-CIRCUS|🎪|Grote tent met clowns en acrobaten.
-PRINSES|👸|Dochter van de koning en koningin.
-KONING|🤴|Hij draagt een kroon en woont in een paleis.
-RIDDER|🛡️|Draagt een harnas en vecht met een zwaard.
-ZWAARD|🗡️|Lang scherp wapen van een ridder.
-SCHAT|💎|Kist vol goud waar piraten naar zoeken.
-TOVENAAR|🧙|Hij zegt 'hocus pocus' en heeft een staf.
-ALIEN|👽|Wezentje van een andere planeet.
-MONSTER|👾|Eng wezen onder je bed... of toch niet?
-CLOWN|🤡|Grappige man met een rode neus in het circus.
-VINGER|☝️|Je hebt er tien aan je handen.
-TONG|👅|Daarmee proef je.
-BOT|🦴|Daar kauwt een hond graag op.
-HERSENEN|🧠|Daarmee denk je, in je hoofd.
-NAGEL|💅|Die knip je als hij te lang is.
-TENNIS|🎾|Sport met een racket en een geel balletje.
-HOCKEY|🏑|Sport met een stick, veel gespeeld in Nederland.
-SCHAATS|⛸️|Daarmee glijd je over het ijs.
-SKI|🎿|Lange latten om de berg af te glijden.
-ZWEMMEN|🏊|Dat doe je in het water, voor je diploma A.
-DANSEN|💃|Bewegen op de muziek.
-VIOOL|🎻|Instrument met snaren en een strijkstok.
-TROMPET|🎺|Glimmend blaasinstrument: toeteretoet!
-MICROFOON|🎤|Daarin zing je, dan klinkt het harder.
-DOEL|🥅|Daar wil je de bal in schieten.
-SCHAAK|♟️|Bordspel met een koning, koningin en paarden.
-BOWLING|🎳|Kegels omgooien met een zware bal.
-BROEK|👖|Die trek je aan over je benen.
-JURK|👗|Kledingstuk uit één stuk, vaak met een rok.
-TRUI|🧶|Warm kledingstuk met mouwen, van wol.
-WANTEN|🧤|Die doe je aan je handen als het vriest.
-LAARS|👢|Hoge schoen voor in de regen.
-STROPDAS|👔|Die draagt papa om zijn nek bij een pak.
-SLIPPER|🩴|Open schoentje voor op het strand.
-KOK|🧑‍🍳|Hij maakt het eten in een restaurant.
-DOKTER|🧑‍⚕️|Daar ga je naartoe als je ziek bent.
-BOER|🧑‍🌾|Werkt op het land en melkt de koeien.
-PILOOT|🧑‍✈️|Bestuurt het vliegtuig.
-JUF|👩‍🏫|Zij geeft les op school.
-ASTRONAUT|🧑‍🚀|Vliegt in een raket naar de ruimte.
-SCHILDER|🧑‍🎨|Iemand die met verf mooie kunst maakt.
-BAKKER|🥖|Maakt 's nachts het brood voor de winkel.
-HERFST|🍂|Seizoen waarin de blaadjes van de bomen vallen.
-LENTE|🌸|Seizoen waarin de bloemen weer gaan bloeien.
-ZOMER|😎|Het warmste seizoen, met de lange vakantie.
-PAASEI|🥚|Dat zoek je in de tuin met Pasen.
-KERSTBOOM|🎄|Versierde boom in december.
-VUURWERK|🎆|Knallen en kleuren met oud en nieuw.
-LANTAARN|🏮|Die draag je met Sint-Maarten langs de deuren.
-SNEEUWPOP|☃️|Die bouw je in de winter, met een wortel als neus.
-REGENBOOG|🌈|Kleurige streep in de lucht na een bui.
-BLIKSEM|⚡|Felle flits in de lucht tijdens onweer.
-STORM|🌬️|Heel harde wind.
-MIST|🌫️|Grijze wolk op de grond, je ziet bijna niks.
-BERG|⛰️|Heel hoog stuk land. In Nederland hebben we er bijna geen.
-VULKAAN|🌋|Berg die hete lava spuwt.
-EILAND|🏝️|Stuk land met overal water eromheen.
-CACTUS|🌵|Stekelige plant die in de woestijn groeit.
-PALMBOOM|🌴|Hoge boom met grote bladeren, aan een zonnig strand.
-KLAVER|🍀|Plantje. Met vier blaadjes brengt het geluk.
-AARDE|🌍|De planeet waar wij op wonen.
-PLANEET|🪐|Saturnus en Mars zijn er twee van.
-KOMEET|☄️|Ster met een lange staart die door de ruimte vliegt.
-ROOD|🟥|De kleur van een aardbei.
-BLAUW|🟦|De kleur van de lucht op een zonnige dag.
-GROEN|🟩|De kleur van gras.
-GEEL|🟨|De kleur van een banaan.
-PAARS|🟪|Rood en blauw door elkaar.
-ORANJE|🟧|De kleur van Nederland op Koningsdag.
-WIT|⬜|De kleur van verse sneeuw.
-ZWART|⬛|De kleur van de nacht.
-TWEE|2️⃣|Hoeveel ogen heb je?
-DRIE|3️⃣|Een, twee, ... welk getal komt dan?
-VIER|4️⃣|Hoeveel poten heeft een hond?
-ZES|6️⃣|Hoeveel pootjes heeft een insect?
-ZEVEN|7️⃣|Hoeveel dagen heeft een week?
-ACHT|8️⃣|Hoeveel armen heeft een octopus?
-NEGEN|9️⃣|Het getal tussen acht en tien.
-TIEN|🔟|Hoeveel tenen heb je samen?
-CIRKEL|⭕|Een ronde vorm zonder hoeken.
-DRIEHOEK|🔺|Vorm met drie punten, zoals een stuk pizza.
-GELD|💰|Daarmee betaal je in de winkel.
-MUNT|🪙|Rond stukje geld. Die verzamel je ook in deze puzzel!
-SLOT|🔒|Daarmee zet je je fiets vast.
-BOOG|🏹|Daarmee schiet je pijlen weg.
-KOMPAS|🧭|Wijst altijd naar het noorden.
-TELESCOOP|🔭|Lange kijker om naar de sterren te kijken.
-LOEP|🔍|Vergrootglas om kleine dingen groot te zien.
-BABY|👶|Een heel klein kindje.
-OMA|👵|De moeder van je papa of mama.
-OPA|👴|De vader van je papa of mama.
-LEPEL|🥄|Daarmee eet je soep.
-MES|🔪|Daarmee snijd je je brood.
-FLES|🍾|Daar zit drinken in, met een dop of kurk.`;
-const WORDS=WORDS_RAW.trim().split('\n').map(l=>{const p=l.split('|');return{w:p[0].trim(),e:p[1].trim(),h:p[2].trim()};});
+const WORDS_RAW=`KAT|🐱|zegt miauw|Dit dier zegt miauw.
+KOE|🐄|geeft melk|Dit dier geeft melk en zegt boe.
+VIS|🐟|zwemt|Hij zwemt in het water.
+UIL|🦉|nachtvogel|Deze vogel is 's nachts wakker.
+AAP|🐒|eet bananen|Hij klimt in bomen en eet bananen.
+VOS|🦊|sluw dier|Een slim dier met een rode staart.
+KIP|🐔|legt eieren|Zij legt eieren.
+RAT|🐀|grote muis|Lijkt op een muis, maar is groter.
+MUG|🦟|prikt|Een klein beestje dat prikt.
+ZON|☀️|schijnt|Hij schijnt overdag en is heel warm.
+ZEE|🌊|zout water|Heel veel zout water.
+BAL|⚽|schop je|Daar kun je tegen schoppen.
+BED|🛏️|slaapplek|Hier slaap je in.
+BAD|🛁|was je in|Daar was je je in.
+SOK|🧦|aan je voet|Die draag je aan je voet, in je schoen.
+JAS|🧥|warm aan|Die trek je aan als het koud is.
+PET|🧢|hoed met klep|Een hoedje met een klep.
+BUS|🚌|veel passagiers|Een grote auto voor heel veel mensen.
+OOG|👁️|zien|Daarmee kijk je.
+OOR|👂|horen|Daarmee hoor je.
+PAN|🍳|bakken|Daarin bak je een eitje.
+TAS|👜|spullen erin|Daar stop je je spullen in.
+PEN|🖊️|schrijven|Daarmee schrijf je.
+BEL|🔔|tring tring|Die maakt geluid: tring tring!
+ARM|💪|aan je schouder|Daar zit je hand aan vast.
+HOND|🐶|blaft|Dit dier blaft: woef!
+MUIS|🐭|piept|Een klein dier dat van kaas houdt.
+BEER|🐻|bromt|Een groot dier dat van honing houdt.
+EEND|🦆|kwak|Deze vogel zegt kwak.
+HAAN|🐓|kukeleku|Hij roept in de ochtend: kukeleku!
+GEIT|🐐|sikje|Een boerderijdier met een sikje.
+HERT|🦌|gewei|Een bosdier met een groot gewei.
+EGEL|🦔|stekels|Een klein dier vol stekels.
+SLAK|🐌|draagt huisje|Hij draagt zijn huisje op zijn rug.
+MIER|🐜|klein en sterk|Een heel klein beestje dat heel sterk is.
+SPIN|🕷️|maakt web|Dit beestje maakt een web.
+KRAB|🦀|loopt zijwaarts|Hij loopt zijwaarts over het strand.
+HAAI|🦈|roofvis|Een grote vis met scherpe tanden.
+DUIF|🕊️|stadsvogel|Een vogel die je veel in de stad ziet.
+BOOM|🌳|heeft takken|Hij is groot en groen en heeft takken.
+TULP|🌷|Hollandse bloem|Een bekende bloem uit Nederland.
+ROOS|🌹|doornen|Een rode bloem met doornen.
+BLAD|🍃|aan een tak|Groen en het zit aan een boom.
+HUIS|🏠|woning|Hier woon je.
+AUTO|🚗|vier wielen|Die rijdt op vier wielen.
+BOOT|⛵|vaart|Die vaart op het water.
+TAXI|🚕|betaalde rit|Een auto die jou ergens heen brengt.
+KAAS|🧀|uit Gouda|Geel en lekker. Nederland is er beroemd om.
+MELK|🥛|wit drinken|Wit drinken van de koe.
+PEER|🍐|groen fruit|Groen fruit dat een beetje op een appel lijkt.
+SOEP|🍲|warme kom|Warm eten dat je met een lepel eet.
+BOEK|📖|verhalen|Hierin staan verhalen.
+MAAN|🌙|nachthemel|Die zie je 's nachts aan de lucht.
+STER|⭐|twinkelt|Die twinkelt 's nachts aan de hemel.
+WOLK|☁️|in de lucht|Wit en zacht, hoog in de lucht.
+VUUR|🔥|brandt|Heet en oranje. Niet aankomen!
+HAND|✋|vijf vingers|Daar zitten vijf vingers aan.
+VOET|🦶|onder je been|Daar sta je op.
+NEUS|👃|ruiken|Daarmee ruik je.
+MOND|👄|praten|Daarmee eet en praat je.
+TAND|🦷|poetsen|Die poets je elke dag.
+HART|❤️|klopt|Het klopt in je borst.
+LAMP|💡|geeft licht|Die geeft licht.
+DEUR|🚪|open en dicht|Die gaat open en dicht.
+KLOK|🕐|tijd|Die vertelt hoe laat het is.
+HOED|🎩|op je hoofd|Die zet je op je hoofd.
+VLAG|🚩|wappert|Die wappert aan een paal.
+TENT|⛺|camping|Daarin slaap je op de camping.
+VORK|🍴|prikken|Daarmee prik je in je eten.
+BORD|🍽️|eten erop|Daar ligt je eten op.
+ZEEP|🧼|schuimt|Daarmee was je je handen.
+BRIL|👓|beter zien|Die zet je op om beter te zien.
+RING|💍|om je vinger|Die draag je om je vinger.
+DOOS|📦|bewaren|Daar kun je dingen in bewaren.
+TROM|🥁|boem boem|Daar sla je op: boem boem!
+DUIM|👍|dikke vinger|Die steek je op als iets goed is.
+BEEN|🦵|lopen|Daar loop je op.
+PAARD|🐴|rijdier|Daar kun je op rijden.
+SLANG|🐍|geen poten|Een lang dier zonder pootjes.
+LEEUW|🦁|brult hard|De koning van de dieren.
+ZEBRA|🦓|strepen|Een paard met zwarte en witte strepen.
+GIRAF|🦒|lange nek|Een dier met een heel lange nek.
+ZWAAN|🦢|witte vogel|Een witte vogel met een lange nek.
+BLOEM|🌼|ruikt lekker|Die groeit in de tuin en ruikt lekker.
+APPEL|🍎|rood fruit|Rood of groen fruit.
+DRUIF|🍇|aan een tros|Klein rond fruit dat aan een tros groeit.
+BROOD|🍞|boterham|Daar smeer je boter op.
+FRIET|🍟|patat|Patat! Lekker met mayonaise.
+SNOEP|🍬|zoet|Zoet en lekker, maar niet te veel!
+WAFEL|🧇|met vakjes|Lekkers met vakjes. Ken je de stroop...?
+DONUT|🍩|gat in midden|Rond en zoet, met een gat in het midden.
+PIZZA|🍕|uit de oven|Rond, met tomaat en kaas, uit de oven.
+TAART|🎂|verjaardag|Die eet je op je verjaardag.
+TREIN|🚂|op het spoor|Die rijdt over het spoor.
+FIETS|🚲|twee wielen|Daar rijd je op, met twee wielen.
+SCHIP|🚢|grote boot|Een hele grote boot.
+RAKET|🚀|naar de ruimte|Daarmee vlieg je naar de ruimte.
+ROBOT|🤖|machine|Een machine die kan lopen en piepen.
+DRAAK|🐉|spuwt vuur|Een sprookjesmonster dat vuur spuwt.
+KROON|👑|goud op hoofd|Die draagt een koning op zijn hoofd.
+SPOOK|👻|boe!|Het roept: boe! Een beetje eng...
+PIANO|🎹|toetsen|Muziek maken met zwarte en witte toetsen.
+KAARS|🕯️|vlammetje|Die brandt met een klein vlammetje.
+HAMER|🔨|spijkers|Daarmee sla je een spijker in de muur.
+BEKER|🏆|prijs|Die win je bij een wedstrijd.
+KAART|🗺️|waar ben je?|Daarop zie je waar je bent.
+REGEN|🌧️|druppels|Water dat uit de wolken valt.
+FEEST|🎉|vieren|Dat vier je op je verjaardag.
+MOLEN|#molen|draait in wind|Die draait in de wind. Heel Nederlands!
+KLOMP|#klomp|houten schoen|Een houten schoen uit Nederland.
+SJAAL|🧣|om je nek|Die draag je om je nek als het koud is.
+PINDA|🥜|nootje|Een nootje. Lekker als ...kaas op brood.
+VARKEN|🐷|knort|Een roze dier dat knort.
+SCHAAP|🐑|wol|Een wollig dier dat bèè zegt.
+KIKKER|🐸|kwaakt|Een groen dier dat kwaakt en springt.
+KAMEEL|🐫|bulten|Dit dier heeft bulten op zijn rug.
+WALVIS|🐋|groot zeedier|Het grootste dier van de zee.
+BANAAN|🍌|krom fruit|Geel en krom fruit.
+WORTEL|🥕|oranje groente|Een oranje groente. Konijnen smullen ervan.
+TOMAAT|🍅|rood en rond|Rood en rond. Je eet hem in de salade.
+KOEKJE|🍪|bij de thee|Lekker bij de thee.
+STRAND|🏖️|zand en zee|Daar speel je in het zand bij de zee.
+SCHAAR|✂️|knippen|Daarmee knip je papier.
+BALLON|🎈|opblazen|Die blaas je op voor een feestje.
+GITAAR|🎸|snaren|Een instrument met snaren.
+PIRAAT|🏴‍☠️|zoekt schat|Hij vaart op zee en zoekt een schat.
+SCHOEN|👟|met veters|Die trek je aan je voet.
+SNEEUW|❄️|koud en wit|Wit en koud, het valt in de winter uit de lucht.
+MUZIEK|🎵|luisteren|Daar kun je naar luisteren en op dansen.
+OLIFANT|🐘|slurf|Een groot grijs dier met een slurf.
+VLINDER|🦋|vleugels|Een beestje met mooie gekleurde vleugels.
+CITROEN|🍋|zuur|Geel en heel zuur.
+AARDBEI|🍓|rood vruchtje|Een rood vruchtje met kleine pitjes.
+KASTEEL|🏰|met slotgracht|Daar woont een koning of prinses.
+SLEUTEL|🔑|op slot|Daarmee doe je de deur op slot.
+POTLOOD|✏️|tekenen|Daarmee teken je.
+HAMSTER|🐹|bolle wangen|Klein knaagdier dat eten in zijn wangen bewaart.
+PAPEGAAI|🦜|praat na|Kleurige vogel die woorden kan nazeggen.
+FLAMINGO|🦩|roze vogel|Roze vogel die op één poot staat.
+PINGUIN|🐧|kan niet vliegen|Zwart-witte vogel die niet kan vliegen, maar wel zwemmen.
+OCTOPUS|🐙|acht armen|Zeedier met acht armen.
+INKTVIS|🦑|zwarte wolk|Zeedier dat een zwarte wolk spuit als het schrikt.
+GARNAAL|🦐|roze zeediertje|Klein roze zeediertje, lekker op brood.
+SCHELP|🐚|op het strand|Die vind je op het strand. Hou hem bij je oor en hoor de zee.
+KREKEL|🦗|tsjirpt|Insect dat 's avonds in het gras tsjirpt.
+WOLF|🐺|huilt|Wild dier dat naar de maan huilt.
+PANDA|🐼|eet bamboe|Zwart-witte beer die bamboe eet.
+KOALA|🐨|uit Australië|Grijs dier uit Australië dat in bomen slaapt.
+GORILLA|🦍|grote aap|De grootste aap. Hij slaat op zijn borst.
+LUIAARD|🦥|heel traag|Het traagste dier. Hij hangt de hele dag in een boom.
+BEVER|🦫|bouwt dam|Hij knaagt bomen om en bouwt een dam.
+KALKOEN|🦃|gobbel gobbel|Grote vogel die 'gobbel gobbel' zegt.
+ADELAAR|🦅|roofvogel|Grote roofvogel met heel scherpe ogen.
+EENHOORN|🦄|magisch paard|Paard uit sprookjes met een hoorn op zijn hoofd.
+VLIEG|🪰|zoemt|Insect dat zoemt en op je eten gaat zitten.
+WORM|🪱|in de aarde|Lang beestje dat door de aarde kruipt.
+KUIKEN|🐣|babykip|Baby van een kip, net uit het ei.
+LAMA|🦙|spuugt|Wollig dier uit Zuid-Amerika dat kan spugen.
+PAUW|🦚|mooie staart|Vogel met een prachtige staart vol kleuren.
+KREEFT|🦞|scharen|Rood zeedier met twee grote scharen.
+HAAS|🐇|lange oren|Lijkt op een konijn, maar heeft langere oren en poten.
+MUS|🐦|tjilp|Klein bruin vogeltje dat 'tjilp' zegt.
+DINO|🦕|oerdier|Reuzendier van heel, heel lang geleden.
+RUPS|🐛|wordt vlinder|Kruipt over blaadjes en wordt later een vlinder.
+ZEEHOND|🦭|Waddendier|Grijs dier dat op de zandbanken van de Waddenzee ligt.
+NEUSHOORN|🦏|hoorn op snuit|Groot grijs dier uit Afrika met een punt op zijn snuit.
+KANGOEROE|🦘|springt|Springt rond in Australië, met een buidel voor zijn baby.
+SCHILDPAD|🐢|harde schaal|Traag dier met een harde schaal op zijn rug.
+VLEERMUIS|🦇|hangt omgekeerd|Hangt ondersteboven en vliegt 's nachts.
+EEKHOORN|🐿️|verstopt noten|Rood diertje met een pluimstaart dat nootjes verstopt.
+LUIPAARD|🐆|vlekken|Snelle grote kat met vlekken.
+KROKODIL|🐊|grote bek|Groen dier in de rivier met een grote bek vol tanden.
+HAGEDIS|🦎|klein reptiel|Klein reptiel dat zijn staart kan laten vallen.
+KERS|🍒|rood met pit|Rood vruchtje met een steeltje en een pit.
+PERZIK|🍑|zacht fruit|Zoet fruit met een zachte, harige schil.
+MANGO|🥭|tropisch fruit|Zoet oranje fruit uit warme landen.
+ANANAS|🍍|kroon van blad|Geel fruit met een kroon van stekelige blaadjes.
+MELOEN|🍉|zwarte pitjes|Groot fruit, rood van binnen met zwarte pitjes.
+KIWI|🥝|harig fruit|Bruin en harig fruit, groen van binnen.
+KOKOSNOOT|🥥|aan een palm|Harde harige bal met wit vruchtvlees. Groeit aan een palm.
+AVOCADO|🥑|guacamole|Groene vrucht, die maak je fijn voor guacamole.
+MAIS|🌽|gele kolf|Gele korrels aan een kolf. Popcorn wordt ervan gemaakt.
+PAPRIKA|🫑|knapperig|Knapperige groente in rood, geel of groen.
+KOMKOMMER|🥒|lang en groen|Lange groene groente, lekker in de salade.
+AARDAPPEL|🥔|puree|Daar maak je patat en puree van.
+KNOFLOOK|🧄|sterke geur|Wit bolletje dat sterk ruikt. Handig tegen vampiers!
+BROCCOLI|🥦|groen boompje|Groene groente die op een klein boompje lijkt.
+BOTER|🧈|smeren|Die smeer je op je brood, onder de hagelslag.
+HONING|🍯|van bijen|Zoet en goudgeel, gemaakt door bijen.
+PANNEKOEK|🥞|met stroop|Plat en rond, lekker met stroop.
+CHOCOLA|🍫|smelt|Bruin en zoet, smelt in de zon.
+LOLLY|🍭|op een stokje|Snoepje op een stokje.
+POPCORN|🍿|bioscoop|Dat eet je in de bioscoop.
+HOTDOG|🌭|met worstje|Broodje met een worstje erin.
+SALADE|🥗|met sla|Koude schaal met sla en groenten.
+SPAGHETTI|🍝|slierten|Lange slierten pasta met tomatensaus.
+SUSHI|🍣|uit Japan|Rijst met vis, uit Japan.
+TACO|🌮|Mexicaans|Gevouwen Mexicaans broodje met vulling.
+BURGER|🍔|broodje vlees|Broodje met een rond plak vlees ertussen.
+KOFFIE|☕|bruine drank|Warme bruine drank die grote mensen drinken.
+THEE|🍵|met een zakje|Warm drinken met een zakje erin.
+SAP|🧃|uit een pakje|Drinken van fruit, vaak uit een pakje.
+WATER|💧|tegen dorst|Dat drink je als je dorst hebt, uit de kraan.
+ZOUT|🧂|strooien|Wit en hartig. Dat strooi je over je patat.
+TRACTOR|🚜|op de boerderij|Grote machine waarmee de boer over het land rijdt.
+VLIEGTUIG|✈️|op vakantie|Daarmee ga je door de lucht op vakantie.
+METRO|🚇|onder de grond|Trein die onder de grond rijdt.
+TRAM|🚊|rails in straat|Rijdt door de stad over rails in de straat.
+STEP|🛴|duwen|Eén voet erop en met de andere duwen.
+AMBULANCE|🚑|zwaailicht|Auto met zwaailicht die zieke mensen snel helpt.
+POLITIE|🚓|agenten|Agenten die op straat helpen en boeven vangen.
+BRANDWEER|🚒|blust|Zij komen met een rode wagen als er vuur is.
+MOTOR|🏍️|maakt herrie|Snel voertuig met twee wielen dat veel herrie maakt.
+KANO|🛶|peddelen|Smal bootje waarmee je peddelt.
+ANKER|⚓|houdt schip|Zwaar ijzer dat een schip op zijn plek houdt.
+UFO|🛸|vliegende schotel|Vliegende schotel van wezens uit de ruimte.
+TRUCK|🚚|vrachtauto|Grote vrachtauto die spullen vervoert.
+STOPLICHT|🚦|rood en groen|Rood, oranje, groen: mag je al oversteken?
+STOEL|🪑|zitten|Daar zit je op aan tafel.
+BANK|🛋️|in de woonkamer|Daar zit je lekker op in de woonkamer.
+RAAM|🪟|naar buiten|Daar kijk je door naar buiten.
+SPIEGEL|🪞|zie jezelf|Daarin zie je jezelf.
+BEZEM|🧹|vegen|Daarmee veeg je de vloer.
+EMMER|🪣|water dragen|Daarmee draag je water.
+TELEFOON|📱|bellen|Daarmee bel je oma.
+COMPUTER|💻|typen|Daarop kun je typen en spelletjes spelen.
+TELEVISIE|📺|tekenfilms|Scherm waarop je tekenfilms kijkt.
+RADIO|📻|muziek en nieuws|Kastje waaruit muziek en nieuws komt.
+CAMERA|📷|foto's|Daarmee maak je foto's.
+MAGNEET|🧲|trekt ijzer|Trekt ijzeren dingen naar zich toe.
+LADDER|🪜|klimmen|Daarmee klim je naar boven.
+ZAAG|🪚|door hout|Gereedschap met scherpe tanden voor hout.
+PARAPLU|☂️|tegen regen|Die houd je boven je hoofd als het regent.
+KOFFER|🧳|mee op reis|Daar pak je je kleren in voor de vakantie.
+RUGZAK|🎒|schooltas|Tas die je op je rug naar school draagt.
+ENVELOP|✉️|voor een brief|Daar stop je een brief in.
+ZAKLAMP|🔦|licht in donker|Licht in je hand voor in het donker.
+WEKKER|⏰|ochtendbel|Die maakt je 's ochtends wakker.
+KALENDER|📅|alle dagen|Daarop staan alle dagen van het jaar.
+PUZZEL|🧩|stukjes|Stukjes die precies in elkaar passen.
+KNUFFEL|🧸|zacht speelgoed|Zacht speelgoeddier om mee te slapen.
+VLIEGER|🪁|aan een touw|Die laat je wapperen in de wind aan een touw.
+JOJO|🪀|op en neer|Speelgoed aan een touwtje dat op en neer rolt.
+VERF|🎨|schilderen|Daarmee schilder je een tekening.
+LINIAAL|📏|rechte streep|Daarmee trek je een rechte streep.
+SCHOOL|🏫|leren|Daar leer je lezen en rekenen.
+FABRIEK|🏭|spullen maken|Gebouw waar spullen worden gemaakt.
+KERK|⛪|toren met klok|Gebouw met een hoge toren en klokken.
+TOREN|🗼|heel hoog|Heel hoog gebouw, zoals die in Parijs.
+BRUG|🌉|over water|Daarmee ga je over het water.
+FONTEIN|⛲|spuitwater|Daar spuit water omhoog in het park.
+STADION|🏟️|voetbal kijken|Groot gebouw waar voetbalwedstrijden zijn.
+WINKEL|🏪|kopen|Daar doe je boodschappen.
+KERMIS|🎡|reuzenrad|Feest met een reuzenrad en botsauto's.
+CIRCUS|🎪|clowns|Grote tent met clowns en acrobaten.
+PRINSES|👸|kind van koning|Dochter van de koning en koningin.
+KONING|🤴|draagt kroon|Hij draagt een kroon en woont in een paleis.
+RIDDER|🛡️|harnas|Draagt een harnas en vecht met een zwaard.
+ZWAARD|🗡️|wapen van ridder|Lang scherp wapen van een ridder.
+SCHAT|💎|goud van piraten|Kist vol goud waar piraten naar zoeken.
+TOVENAAR|🧙|hocus pocus|Hij zegt 'hocus pocus' en heeft een staf.
+ALIEN|👽|ruimtewezen|Wezentje van een andere planeet.
+MONSTER|👾|eng wezen|Eng wezen onder je bed... of toch niet?
+CLOWN|🤡|rode neus|Grappige man met een rode neus in het circus.
+VINGER|☝️|aan je hand|Je hebt er tien aan je handen.
+TONG|👅|proeven|Daarmee proef je.
+BOT|🦴|skelet|Daar kauwt een hond graag op.
+HERSENEN|🧠|denken|Daarmee denk je, in je hoofd.
+NAGEL|💅|knippen|Die knip je als hij te lang is.
+TENNIS|🎾|racket|Sport met een racket en een geel balletje.
+HOCKEY|🏑|stick|Sport met een stick, veel gespeeld in Nederland.
+SCHAATS|⛸️|op het ijs|Daarmee glijd je over het ijs.
+SKI|🎿|berg af|Lange latten om de berg af te glijden.
+ZWEMMEN|🏊|diploma A|Dat doe je in het water, voor je diploma A.
+DANSEN|💃|op muziek|Bewegen op de muziek.
+VIOOL|🎻|strijkstok|Instrument met snaren en een strijkstok.
+TROMPET|🎺|toeteren|Glimmend blaasinstrument: toeteretoet!
+MICROFOON|🎤|zingen|Daarin zing je, dan klinkt het harder.
+DOEL|🥅|scoren|Daar wil je de bal in schieten.
+SCHAAK|♟️|bordspel|Bordspel met een koning, koningin en paarden.
+BOWLING|🎳|kegels|Kegels omgooien met een zware bal.
+BROEK|👖|om je benen|Die trek je aan over je benen.
+JURK|👗|met een rok|Kledingstuk uit één stuk, vaak met een rok.
+TRUI|🧶|van wol|Warm kledingstuk met mouwen, van wol.
+WANTEN|🧤|warme handen|Die doe je aan je handen als het vriest.
+LAARS|👢|hoge schoen|Hoge schoen voor in de regen.
+STROPDAS|👔|bij een pak|Die draagt papa om zijn nek bij een pak.
+SLIPPER|🩴|open schoen|Open schoentje voor op het strand.
+KOK|🧑‍🍳|kookt|Hij maakt het eten in een restaurant.
+DOKTER|🧑‍⚕️|maakt beter|Daar ga je naartoe als je ziek bent.
+BOER|🧑‍🌾|melkt koeien|Werkt op het land en melkt de koeien.
+PILOOT|🧑‍✈️|in de cockpit|Bestuurt het vliegtuig.
+JUF|👩‍🏫|geeft les|Zij geeft les op school.
+ASTRONAUT|🧑‍🚀|reist in raket|Vliegt in een raket naar de ruimte.
+SCHILDER|🧑‍🎨|kunstenaar|Iemand die met verf mooie kunst maakt.
+BAKKER|🥖|bakt brood|Maakt 's nachts het brood voor de winkel.
+HERFST|🍂|vallende blaadjes|Seizoen waarin de blaadjes van de bomen vallen.
+LENTE|🌸|bloesem|Seizoen waarin de bloemen weer gaan bloeien.
+ZOMER|😎|warm seizoen|Het warmste seizoen, met de lange vakantie.
+PAASEI|🥚|Pasen|Dat zoek je in de tuin met Pasen.
+KERSTBOOM|🎄|december|Versierde boom in december.
+VUURWERK|🎆|oud en nieuw|Knallen en kleuren met oud en nieuw.
+LANTAARN|🏮|Sint-Maarten|Die draag je met Sint-Maarten langs de deuren.
+SNEEUWPOP|☃️|wortelneus|Die bouw je in de winter, met een wortel als neus.
+REGENBOOG|🌈|zeven kleuren|Kleurige streep in de lucht na een bui.
+BLIKSEM|⚡|flits|Felle flits in de lucht tijdens onweer.
+STORM|🌬️|harde wind|Heel harde wind.
+MIST|🌫️|zie niks|Grijze wolk op de grond, je ziet bijna niks.
+BERG|⛰️|hoog land|Heel hoog stuk land. In Nederland hebben we er bijna geen.
+VULKAAN|🌋|spuwt lava|Berg die hete lava spuwt.
+EILAND|🏝️|water rondom|Stuk land met overal water eromheen.
+CACTUS|🌵|prikt in woestijn|Stekelige plant die in de woestijn groeit.
+PALMBOOM|🌴|tropische boom|Hoge boom met grote bladeren, aan een zonnig strand.
+KLAVER|🍀|brengt geluk|Plantje. Met vier blaadjes brengt het geluk.
+AARDE|🌍|onze planeet|De planeet waar wij op wonen.
+PLANEET|🪐|zoals Mars|Saturnus en Mars zijn er twee van.
+KOMEET|☄️|ster met staart|Ster met een lange staart die door de ruimte vliegt.
+ROOD|🟥|kleur aardbei|De kleur van een aardbei.
+BLAUW|🟦|kleur lucht|De kleur van de lucht op een zonnige dag.
+GROEN|🟩|kleur gras|De kleur van gras.
+GEEL|🟨|kleur banaan|De kleur van een banaan.
+PAARS|🟪|rood plus blauw|Rood en blauw door elkaar.
+ORANJE|🟧|Koningsdag|De kleur van Nederland op Koningsdag.
+WIT|⬜|kleur sneeuw|De kleur van verse sneeuw.
+ZWART|⬛|kleur nacht|De kleur van de nacht.
+TWEE|2️⃣|1 + 1|Hoeveel ogen heb je?
+DRIE|3️⃣|1 + 2|Een, twee, ... welk getal komt dan?
+VIER|4️⃣|2 + 2|Hoeveel poten heeft een hond?
+ZES|6️⃣|3 + 3|Hoeveel pootjes heeft een insect?
+ZEVEN|7️⃣|dagen in week|Hoeveel dagen heeft een week?
+ACHT|8️⃣|4 + 4|Hoeveel armen heeft een octopus?
+NEGEN|9️⃣|5 + 4|Het getal tussen acht en tien.
+TIEN|🔟|5 + 5|Hoeveel tenen heb je samen?
+CIRKEL|⭕|rond|Een ronde vorm zonder hoeken.
+DRIEHOEK|🔺|pizzapunt|Vorm met drie punten, zoals een stuk pizza.
+GELD|💰|betalen|Daarmee betaal je in de winkel.
+MUNT|🪙|rond geld|Rond stukje geld. Die verzamel je ook in deze puzzel!
+SLOT|🔒|fiets vast|Daarmee zet je je fiets vast.
+BOOG|🏹|pijlen|Daarmee schiet je pijlen weg.
+KOMPAS|🧭|wijst noord|Wijst altijd naar het noorden.
+TELESCOOP|🔭|kijkt naar sterren|Lange kijker om naar de sterren te kijken.
+LOEP|🔍|maakt groter|Vergrootglas om kleine dingen groot te zien.
+BABY|👶|klein kindje|Een heel klein kindje.
+OMA|👵|mama van mama|De moeder van je papa of mama.
+OPA|👴|papa van papa|De vader van je papa of mama.
+LEPEL|🥄|soep eten|Daarmee eet je soep.
+MES|🔪|snijden|Daarmee snijd je je brood.
+FLES|🍾|met een dop|Daar zit drinken in, met een dop of kurk.`;
+// WORD|picture|short clue on the board|full sentence in the clue bar
+const WORDS=WORDS_RAW.trim().split('\n').map(l=>{const p=l.split('|');return p.length>3?{w:p[0].trim(),e:p[1].trim(),k:p[2].trim(),h:p[3].trim()}:{w:p[0].trim(),e:p[1].trim(),k:'',h:p[2].trim()};});
 const DICT={};WORDS.forEach(w=>DICT[w.w]=w);
 
 /* ================= COSMETICS ================= */
 const HATS={geen:{name:'Geen hoed'},pet:{name:'Pet'},feest:{name:'Feesthoed'},kroon:{name:'Kroon'},tovenaar:{name:'Tovenaarshoed'},piraat:{name:'Piratenhoed'},kok:{name:'Koksmuts'},bloem:{name:'Bloemetje'},viking:{name:'Vikinghelm'}};
 const COLORS={geel:{name:'Geel',body:'#FFD23F',belly:'#FFF1B8'},oranje:{name:'Oranje',body:'#FF8A1F',belly:'#FFD9B0'},roze:{name:'Roze',body:'#FF8FC1',belly:'#FFE0EE'},mint:{name:'Mint',body:'#4FD1A8',belly:'#D2F7EA'},blauw:{name:'Blauw',body:'#4C9BFF',belly:'#D6E8FF'},paars:{name:'Paars',body:'#9B7CF5',belly:'#E4DBFF'}};
 const TILES={
- hout:{name:'Hout',letter:'#F2D2A2',letterTxt:'#5B3A1D',clue:'#C88A4E',clueTxt:'#FFF4E2',clueHl:'#FFE08A',clueHlTxt:'#7A4B12',filler:'#9A6B40',base:'#6E4526',active:'#FFE7A6',sel:'#FFC23D',solved:'#9AD97E',solvedTxt:'#1E5B22',wrongTxt:'#D7263D',rough:.75,metal:0,emiss:0},
+ hout:{name:'Hout',letter:'#F2D2A2',letterTxt:'#5B3A1D',clue:'#7E4B27',clueTxt:'#FFF6E6',clueHl:'#FFE08A',clueHlTxt:'#6A3E0E',filler:'#C99A63',base:'#6E4526',active:'#FFE7A6',sel:'#FFC23D',solved:'#9AD97E',solvedTxt:'#1E5B22',wrongTxt:'#D7263D',rough:.75,metal:0,emiss:0},
  delfts:{name:'Delfts blauw',letter:'#F8FAFF',letterTxt:'#1E3C96',clue:'#2A4FB8',clueTxt:'#FFFFFF',clueHl:'#A9C2FF',clueHlTxt:'#13235E',filler:'#8EA6E8',base:'#173080',active:'#DCE6FF',sel:'#9DB8FF',solved:'#C4EBD0',solvedTxt:'#14612F',wrongTxt:'#D7263D',rough:.35,metal:.05,emiss:0},
  snoep:{name:'Snoep',letter:'#FFE6F2',letterTxt:'#B3156E',clue:'#FF6FB2',clueTxt:'#FFFFFF',clueHl:'#FFF08A',clueHlTxt:'#B3156E',filler:'#9FE9D6',base:'#FF9ACB',active:'#FFF6BF',sel:'#FFD84D',solved:'#A9F0D6',solvedTxt:'#0E6A50',wrongTxt:'#D7263D',rough:.4,metal:0,emiss:0},
  neon:{name:'Neon',letter:'#1D1B44',letterTxt:'#3FF5E8',clue:'#E2338F',clueTxt:'#FFFFFF',clueHl:'#FFE14D',clueHlTxt:'#1D1B44',filler:'#2B2560',base:'#0E0B26',active:'#2F2C78',sel:'#5B3FE0',solved:'#11553F',solvedTxt:'#7CFFB6',wrongTxt:'#FF5A6E',rough:.4,metal:.1,emiss:.35,glow:true},
- goud:{name:'Goud',letter:'#F7D774',letterTxt:'#5A3A00',clue:'#C18F1C',clueTxt:'#FFF7DA',clueHl:'#FFF3B8',clueHlTxt:'#5A3A00',filler:'#A07A22',base:'#6E500E',active:'#FFEAA6',sel:'#FFFFFF',solved:'#B9E28A',solvedTxt:'#2D5A0F',wrongTxt:'#C21D30',rough:.28,metal:.5,emiss:.08},
+ goud:{name:'Goud',letter:'#F7D774',letterTxt:'#5A3A00',clue:'#C18F1C',clueTxt:'#3D2700',clueHl:'#FFF3B8',clueHlTxt:'#5A3A00',filler:'#A07A22',base:'#6E500E',active:'#FFEAA6',sel:'#FFFFFF',solved:'#B9E28A',solvedTxt:'#2D5A0F',wrongTxt:'#C21D30',rough:.28,metal:.5,emiss:.08},
  ijs:{name:'IJs',letter:'#EAF8FF',letterTxt:'#155B86',clue:'#78C8F2',clueTxt:'#073452',clueHl:'#FFFFFF',clueHlTxt:'#155B86',filler:'#C2E8FA',base:'#8DCDEB',active:'#D2F0FF',sel:'#FFFFFF',solved:'#BDF2E2',solvedTxt:'#0D6550',wrongTxt:'#D7263D',rough:.12,metal:.15,emiss:.05},
  regenboog:{name:'Regenboog',rainbow:true,letter:'#FFFFFF',letterTxt:'#2A2350',clue:'#FFFFFF',clueTxt:'#2A2350',clueHl:'#FFE14D',clueHlTxt:'#2A2350',filler:'#E9E4FF',base:'#7C5CF0',active:'#FFFFFF',sel:'#FFFFFF',solved:'#B7F5C8',solvedTxt:'#14612F',wrongTxt:'#D7263D',rough:.45,metal:0,emiss:0}
 };
@@ -831,17 +839,18 @@ function crop(res){
 function makePuzzle(def){
   const{W,H}=def;
   const cells=def.cells.map((c,i)=>({i,r:Math.floor(i/W),c:i%W,t:c.t,ch:c.ch,h:c.h,v:c.v}));
-  const words=def.words.map((w,idx)=>{const d=DICT[w.w]||{e:'⭐',h:'Raad het woord!'};const dr=w.dir==='v'?1:0,dc=1-dr;const list=[];for(let k=0;k<w.w.length;k++)list.push((w.r+dr*k)*W+(w.c+dc*k));return{idx,w:w.w,e:d.e,hint:d.h,r:w.r,c:w.c,dir:w.dir,cells:list,clue:(w.r-dr)*W+(w.c-dc)};});
+  const words=def.words.map((w,idx)=>{const d=DICT[w.w]||{e:'⭐',k:'raad het',h:'Raad het woord!'};const dr=w.dir==='v'?1:0,dc=1-dr;const list=[];for(let k=0;k<w.w.length;k++)list.push((w.r+dr*k)*W+(w.c+dc*k));return{idx,w:w.w,e:d.e,kort:d.k||d.h,hint:d.h,r:w.r,c:w.c,dir:w.dir,cells:list,clue:(w.r-dr)*W+(w.c-dc)};});
   const order=words.slice().sort((a,b)=>(a.clue-b.clue)||(a.dir==='h'?-1:1)).map(w=>w.idx);
   const fillers=cells.filter(c=>c.t==='F').map(c=>c.i);
   const coins=def.coins||shuffle(fillers.slice()).slice(0,Math.min(2,fillers.length));
-  return{W,H,cells,words,order,vals:def.vals||new Array(W*H).fill(''),wrong:new Array(W*H).fill(false),solved:def.solved||words.map(()=>false),mistakes:def.mistakes||0,hints:def.hints||0,coins,taken:def.taken||[],score:def.score||0,bank:{},done:false,uid:Math.random().toString(36).slice(2,8)};
+  return{W,H,cells,words,order,vals:def.vals||new Array(W*H).fill(''),wrong:new Array(W*H).fill(false),solved:def.solved||words.map(()=>false),mistakes:def.mistakes||0,hints:def.hints||0,coins,taken:def.taken||[],score:def.score||0,pics:def.pics||words.map(()=>false),bank:{},done:false,uid:Math.random().toString(36).slice(2,8)};
 }
-function packPuzzle(){if(!P)return null;return{W:P.W,H:P.H,cells:P.cells.map(c=>({t:c.t,ch:c.ch,h:c.h,v:c.v})),words:P.words.map(w=>({w:w.w,r:w.r,c:w.c,dir:w.dir})),vals:P.vals,solved:P.solved,mistakes:P.mistakes,hints:P.hints,coins:P.coins,taken:P.taken,score:P.score};}
+function packPuzzle(){if(!P)return null;return{W:P.W,H:P.H,cells:P.cells.map(c=>({t:c.t,ch:c.ch,h:c.h,v:c.v})),words:P.words.map(w=>({w:w.w,r:w.r,c:w.c,dir:w.dir})),vals:P.vals,solved:P.solved,mistakes:P.mistakes,hints:P.hints,coins:P.coins,taken:P.taken,score:P.score,pics:P.pics};}
 
 /* ================= 2D DRAWING ================= */
 const EMOJI_FONT='"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla","EmojiOne Color",sans-serif';
 const LETTER_FONT='"Andika","Verdana","Arial",sans-serif';
+const CLUE_FONT='"Fira Sans Extra Condensed","Arial Narrow","Roboto Condensed",sans-serif-condensed,sans-serif';
 function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 function drawMolen(ctx,cx,cy,s){const u=s/100;ctx.save();ctx.translate(cx,cy+4*u);
   ctx.fillStyle='#7A5236';ctx.beginPath();ctx.moveTo(-13*u,-8*u);ctx.lineTo(13*u,-8*u);ctx.lineTo(21*u,42*u);ctx.lineTo(-21*u,42*u);ctx.closePath();ctx.fill();
@@ -870,17 +879,33 @@ function paintLetter(ctx,s,ch,color,glow){
   ctx.fillText(ch,s/2,s*.53);ctx.restore();
 }
 function arrowTri(ctx,d,x,y,a){ctx.beginPath();if(d==='h'){ctx.moveTo(x,y);ctx.lineTo(x-a*1.3,y-a);ctx.lineTo(x-a*1.3,y+a);}else{ctx.moveTo(x,y);ctx.lineTo(x-a,y-a*1.3);ctx.lineTo(x+a,y-a*1.3);}ctx.closePath();ctx.fill();}
+function fitText(ctx,text,cx,cy,w,h,maxSize,minSize,maxLines){
+  // biggest font size at which the clue wraps into the box; compresses horizontally as a last resort
+  const words=String(text).split(/\s+/);let lines=null,size=minSize;
+  for(let sz=Math.round(maxSize);sz>=minSize;sz-=2){
+    ctx.font='700 '+sz+'px '+CLUE_FONT;const ls=[];let cur='',ok=true;
+    for(const wd of words){const t=cur?cur+' '+wd:wd;if(ctx.measureText(t).width<=w)cur=t;else{if(cur)ls.push(cur);cur=wd;if(ctx.measureText(wd).width>w){ok=false;}}}
+    if(cur)ls.push(cur);
+    if(ok&&ls.length<=maxLines&&ls.length*sz*1.06<=h){lines=ls;size=sz;break;}
+  }
+  if(!lines){size=minSize;ctx.font='700 '+size+'px '+CLUE_FONT;lines=words.length>maxLines?[words.slice(0,Math.ceil(words.length/2)).join(' '),words.slice(Math.ceil(words.length/2)).join(' ')]:words;}
+  const lh=size*1.06,y0=cy-(lines.length-1)*lh/2;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  lines.forEach((l,i)=>ctx.fillText(l,cx,y0+i*lh+size*.04,w));
+}
 function paintClueCell(ctx,s,parts,th,hl){
-  // parts: [{dir,e,solved}]
+  // parts: [{dir,e,k,solved,pic}] — short text clue, or the picture once solved or bought with a tip
   ctx.clearRect(0,0,s,s);
   const both=parts.length>1,pad=s*.06;
   parts.forEach(p=>{
     const box=!both?[0,0,s,s]:(p.dir==='h'?[0,0,s,s/2]:[0,s/2,s,s/2]);
     if(hl===p.dir){ctx.fillStyle=th.clueHl;rr(ctx,box[0]+pad*.6,box[1]+pad*.6,box[2]-pad*1.2,box[3]-pad*1.2,s*.09);ctx.fill();}
-    const size=both?s*.4:s*.66;
     let cx=box[0]+box[2]/2,cy=box[1]+box[3]/2;
     if(p.dir==='h')cx-=s*.06;else cy-=both?s*.03:s*.07;
-    ctx.globalAlpha=p.solved?.4:1;drawPic(ctx,p.e,cx,cy,size);ctx.globalAlpha=1;
+    if(p.pic){drawPic(ctx,p.e,cx,cy,both?s*.4:s*.66);}
+    else{ctx.fillStyle=hl===p.dir?th.clueHlTxt:th.clueTxt;
+      if(both)fitText(ctx,p.k,cx+(p.dir==='h'?s*.02:0),cy,s*.86,s*.4,s*.24,s*.1,2);
+      else fitText(ctx,p.k,cx+(p.dir==='h'?s*.02:0),cy,s*.86,s*.8,s*.34,s*.11,3);}
     ctx.fillStyle=hl===p.dir?th.clueHlTxt:th.clueTxt;const a=s*.065;
     if(p.dir==='h')arrowTri(ctx,'h',box[0]+box[2]-pad*.6,cy+(both?0:0),a);else arrowTri(ctx,'v',cx,box[1]+box[3]-pad*.6,a);
     if(p.solved){const ox=box[0]+s*.13,oy=box[1]+s*.13,r=s*.085;ctx.fillStyle='#2FA45A';ctx.beginPath();ctx.arc(ox,oy,r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=s*.022;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(ox-r*.45,oy);ctx.lineTo(ox-r*.1,oy+r*.38);ctx.lineTo(ox+r*.5,oy-r*.35);ctx.stroke();}
@@ -1117,7 +1142,7 @@ function buildBoard(){
   P.coins.forEach(ci=>{if(P.taken.includes(ci))return;const t=tiles[ci];if(!t)return;const coin=makeCoin();coin.position.set(t.x,BASE_H+FH+.45,t.z);coin.userData.coin=ci;boardGroup.add(coin);coinObjs.push({ci,obj:coin,t:-1});picks.push(coin);});
   refresh();
 }
-function clueParts(cell){const parts=[];['h','v'].forEach(d=>{if(cell[d]!=null){const w=P.words[cell[d]];parts.push({dir:d,e:w.e,solved:P.solved[w.idx]});}});return parts;}
+function clueParts(cell){const parts=[];['h','v'].forEach(d=>{if(cell[d]!=null){const w=P.words[cell[d]];const sv=P.solved[w.idx];parts.push({dir:d,e:w.e,k:w.kort,solved:sv,pic:sv||!!P.pics[w.idx]});}});return parts;}
 let sel={i:-1,dir:'h'};
 function activeWord(){if(!P||sel.i<0)return null;const c=P.cells[sel.i];let wi=c[sel.dir];if(wi==null)wi=c[sel.dir==='h'?'v':'h'];return wi==null?null:P.words[wi];}
 function refresh(){
@@ -1131,7 +1156,7 @@ function refresh(){
       const ch=P.vals[c.i]||'',tc=solved?th.solvedTxt:P.wrong[c.i]?th.wrongTxt:th.letterTxt,key=ch+'|'+tc;
       if(t.key!==key){paintLetter(t.ctx,t.res,ch,tc,th.glow);t.tex.needsUpdate=true;t.key=key;}
     }else if(c.t==='C'){
-      const hl=aw&&aw.clue===c.i?aw.dir:'';const parts=clueParts(c);const key=hl+'|'+parts.map(p=>p.solved?1:0).join('');
+      const hl=aw&&aw.clue===c.i?aw.dir:'';const parts=clueParts(c);const key=hl+'|'+parts.map(p=>(p.solved?1:0)+''+(p.pic?1:0)).join('');
       if(t.key!==key){paintClueCell(t.ctx,t.res,parts,th,hl);t.tex.needsUpdate=true;t.key=key;}
       t.ty=hl?.08:0;
     }
@@ -1225,7 +1250,7 @@ function enterLetter(ch,viaTip,at){
   const full=w.cells.every(k=>P.vals[k]);
   if(full){
     if(correct(w))solveWord(w);
-    else{P.mistakes++;w.cells.forEach(k=>{if(P.vals[k]!==P.cells[k].ch){P.wrong[k]=true;tiles[k].wig=0;}});Sfx.bad();pimShake();say(pick1(OOPS));const f=w.cells.find(k=>P.wrong[k]);if(f!=null)sel.i=f;}
+    else{P.mistakes++;w.cells.forEach(k=>{if(P.vals[k]!==P.cells[k].ch){P.wrong[k]=true;tiles[k].wig=0;}});Sfx.bad();pimShake();say(!P.pics[w.idx]&&P.hints<3&&Math.random()<.5?'Lastig? Tik op het vraagteken voor een plaatje.':pick1(OOPS));const f=w.cells.find(k=>P.wrong[k]);if(f!=null)sel.i=f;}
   }else{const nx=nextOpen(w,i,false);if(nx!=null)sel.i=nx;}
   const oi=P.cells[i][w.dir==='h'?'v':'h'];
   if(oi!=null&&!P.solved[oi]){const ow=P.words[oi];if(ow.cells.every(k=>P.vals[k])&&correct(ow))solveWord(ow);}
@@ -1246,6 +1271,12 @@ function useTip(){
   if(i==null)return;
   P.hints++;Sfx.coin();floatAt(new THREE.Vector3(tiles[i].x,BASE_H+LH+.4,tiles[i].z),'Tip!');
   enterLetter(P.cells[i].ch,true,i);
+}
+function usePicture(){
+  if(!P||P.done)return;const w=activeWord();if(!w||P.solved[w.idx]||P.pics[w.idx])return;
+  if(P.hints>=3){say('Geen tips meer. Lees de aanwijzing nog eens!');pimShake();return;}
+  P.hints++;P.pics[w.idx]=true;Sfx.coin();floatAt(new THREE.Vector3(tiles[w.clue].x,BASE_H+LH+.4,tiles[w.clue].z),'Plaatje!');
+  say(pick1(['Kijk goed!','Weet je het nu?','Hmm, wat is dit?']),1800);refresh();save();
 }
 function addCoins(n){S.coins+=n;const c=$('#coins');c.classList.remove('bump');void c.offsetWidth;c.classList.add('bump');updateHUD();}
 function addXP(n){S.xp+=n;while(S.xp>=need(S.level)){S.xp-=need(S.level);S.level++;pendingLevels.push(S.level);}updateHUD();}
@@ -1302,14 +1333,22 @@ function updateHUD(){
 }
 let clueKey='';
 function updateClueBar(aw){
-  const id=aw?P.uid+':'+aw.idx+':'+(P.solved[aw.idx]?1:0):'none';if(clueKey===id)return;clueKey=id;
-  const cv=$('#cluePic'),ctx=cv.getContext('2d');ctx.clearRect(0,0,cv.width,cv.height);if(aw)drawPic(ctx,aw.e,cv.width/2,cv.height/2,cv.width*.72);
-  $('#clueHint').textContent=aw?aw.hint:'Tik op een plaatje op het bord.';
+  const shown=aw?(P.solved[aw.idx]||!!P.pics[aw.idx]):false,left=Math.max(0,3-P.hints);
+  const id=aw?P.uid+':'+aw.idx+':'+(P.solved[aw.idx]?1:0)+(shown?1:0)+':'+left:'none';if(clueKey===id)return;clueKey=id;
+  const cv=$('#cluePic'),ctx=cv.getContext('2d'),W=cv.width,pb=$('#picBtn'),tag=$('#picTag');ctx.clearRect(0,0,W,W);
+  if(aw&&shown)drawPic(ctx,aw.e,W/2,W/2,W*.72);
+  else{ctx.fillStyle='rgba(255,255,255,.1)';for(let i=0;i<4;i++)for(let j=0;j<4;j++)if((i+j)%2){ctx.fillRect(i*W/4,j*W/4,W/4,W/4);}
+    ctx.fillStyle='#FFFFFF';ctx.font='900 '+Math.round(W*.6)+'px '+getComputedStyle(document.documentElement).getPropertyValue('--f-display');ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('?',W/2,W*.53);}
+  pb.classList.toggle('hidden',!!aw&&!shown);pb.disabled=!aw||shown;
+  tag.hidden=!aw||shown;tag.textContent=left>0?'1 tip':'geen tips';tag.classList.toggle('none',left<=0);
+  $('#clueHint').textContent=aw?aw.hint:'Tik op een vakje met een aanwijzing.';
   $('#clueMeta').innerHTML=aw?'<span>'+aw.w.length+' letters</span>'+(aw.dir==='h'?ICON.right:ICON.down)+(P.solved[aw.idx]?'<span class="ok">Gevonden!</span>':''):'';
 }
 const ROWS=['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'];
 const PASTEL=['#FFE08A','#FFC4BE','#BFE6FF','#CDF2B9','#E6D6FF','#FFD6AE','#C6F1EA','#FFD3EA'];
-function bankFor(w){if(P.bank[w.idx])return P.bank[w.idx];const uniq=new Set(w.w.split(''));const set=new Set(uniq);const pool='AEIOUBDKLMNPRSTVZGHJW';const extra=w.w.length<=5?3:2;let g=0;while(set.size<uniq.size+extra&&g++<60)set.add(pool[Math.floor(Math.random()*pool.length)]);return P.bank[w.idx]=[...set].sort();}
+// Makkelijk: the word's letters hidden among 10–13 letters, decoys weighted toward common Dutch letters
+const DECOY='EEEEAAANNNRRTTOOIIDDSSLLGGKKMMUUVBPHJWZ';
+function bankFor(w){if(P.bank[w.idx])return P.bank[w.idx];const uniq=new Set(w.w.split(''));const total=Math.min(13,Math.max(10,uniq.size+5));const set=new Set(uniq);let g=0;while(set.size<total&&g++<300)set.add(DECOY[Math.floor(Math.random()*DECOY.length)]);return P.bank[w.idx]=[...set].sort();}
 function renderKeys(){
   const box=$('#keys');
   if(S.mode==='full'){if(box.dataset.mode!=='full'){box.dataset.mode='full';box.className='full';box.innerHTML=ROWS.map((r,ri)=>'<div class="krow">'+[...r].map(k=>'<button class="key" data-k="'+k+'">'+k+'</button>').join('')+(ri===2?'<button class="key wide" data-k="DEL" aria-label="Wissen">'+ICON.back+'</button>':'')+'</div>').join('');}return;}
@@ -1322,6 +1361,7 @@ $('#keys').addEventListener('pointerdown',e=>{const b=e.target.closest('.key');i
 document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{S.mode=b.dataset.mode;$('#keys').dataset.mode='';renderKeys();updateHUD();save();Sfx.tap();say(S.mode==='full'?'Uitdaging! Je krijgt extra XP.':'Makkelijk: kies uit een paar letters.',2200);}));
 $('#btnNext').addEventListener('click',()=>{if(!P)return;const aw=activeWord();Sfx.tap();selectNextWord(aw?aw.idx:-1);});
 $('#btnTip').addEventListener('click',()=>{Sfx.init();useTip();});
+$('#picBtn').addEventListener('click',()=>{Sfx.init();usePicture();});
 $('#btnSpeak').addEventListener('click',()=>{const aw=activeWord();if(aw)speak(aw.hint+' Het woord heeft '+aw.w.length+' letters.');});
 $('#btnSound').addEventListener('click',()=>{STORE.mute=!STORE.mute;Sfx.init();updateHUD();saveNow();if(!STORE.mute)Sfx.equip();});
 $('#btnMenu').addEventListener('click',()=>{Sfx.tap();openMenu('spelers');});
@@ -1365,7 +1405,7 @@ function buildTileTrio(key){
     const x=(i-1)*1;const col=it.t==='C'?th.clue:letterBg({c:it.c||0,r:0},th,'idle');
     add(g,roundedTileGeo(TILE,TILE,LH,.15,.05),tileMat(col,th),x,.18,0);
     const res=it.t==='C'?256:128;const cv=document.createElement('canvas');cv.width=cv.height=res;const ctx=cv.getContext('2d');
-    if(it.t==='C')paintClueCell(ctx,res,[{dir:'h',e:'🐱',solved:false}],th,'');else paintLetter(ctx,res,it.ch,th.letterTxt,th.glow);
+    if(it.t==='C')paintClueCell(ctx,res,[{dir:'h',e:'🐱',k:'zegt miauw',solved:false,pic:false}],th,'');else paintLetter(ctx,res,it.ch,th.letterTxt,th.glow);
     const tex=new THREE.CanvasTexture(cv);add(g,pl,new THREE.MeshBasicMaterial({map:tex,transparent:true}),x,.18+LH+.004,0,{cast:false});
   });
   return g;
@@ -1485,7 +1525,7 @@ function startAs(p,isNew){
   if(S.id)saveNow();
   S=p;STORE.last=p.id;pendingLevels=[];closeModal();
   activate(true);closeMenu();
-  say(isNew?'Hoi '+p.name+'! Ik ben Pim. Tik op een plaatje en maak het woord.':'Hoi '+p.name+'! Fijn dat je er weer bent.',isNew?5500:3000);
+  say(isNew?'Hoi '+p.name+'! Ik ben Pim. Lees de aanwijzing in het vakje en vul het woord in.':'Hoi '+p.name+'! Fijn dat je er weer bent.',isNew?5500:3000);
   saveNow();
 }
 function removePlayer(id){
@@ -1553,7 +1593,7 @@ function boot(data){
   activate(true);
   openMenu('spelers');
   try{new ResizeObserver(()=>fit()).observe(stage);}catch(e){window.addEventListener('resize',fit);}
-  if(document.fonts&&document.fonts.load){Promise.all([document.fonts.load('700 64px Andika'),document.fonts.load('800 20px Grandstander')]).then(()=>{redrawAll();fit();}).catch(()=>{});}
+  if(document.fonts&&document.fonts.load){Promise.all([document.fonts.load('700 64px Andika'),document.fonts.load('700 40px "Fira Sans Extra Condensed"'),document.fonts.load('800 20px Grandstander')]).then(()=>{redrawAll();fit();}).catch(()=>{});}
   requestAnimationFrame(frame);
 }
 let hot=null;try{hot=window.claude&&window.claude.hot;}catch(e){}
